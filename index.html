@@ -43,44 +43,19 @@
             <h2>練習したい漢字・熟語を入力</h2>
           </div>
         </div>
-        <p class="subtext">1行に1つずつ入力してください（最大30個まで）</p>
+        <p class="subtext">1行に1つずつ入力してください（最大36個まで）</p>
         <div class="entry-list" id="entryList"></div>
         <div class="add-row">
-          <button type="button" class="btn-add" id="addButton">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
-            追加する
-          </button>
-          <span class="count" id="entryCount">5 / 30</span>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-title">
-          <div class="title-left">
-            <span class="step">2</span>
-            <h2>シートの設定</h2>
+          <div class="entry-actions">
+            <button type="button" class="btn-add" id="addButton">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+              追加する
+            </button>
+            <button type="button" class="btn-choose" id="chooseIdiomsButton" aria-label="熟語からえらぶ">
+              熟語からえらぶ
+            </button>
           </div>
-        </div>
-        <div class="settings">
-          <fieldset class="setting-row">
-            <legend>文字の大きさ</legend>
-            <div class="segmented" id="sizeOptions">
-              <label><input type="radio" name="charSize" value="small">小</label>
-              <label><input type="radio" name="charSize" value="normal" checked>ふつう</label>
-              <label><input type="radio" name="charSize" value="large">大</label>
-            </div>
-          </fieldset>
-
-          <fieldset class="setting-row">
-            <legend>お手本の文字の濃さ</legend>
-            <div class="segmented" id="opacityOptions">
-              <label><input type="radio" name="sampleOpacity" value="light">うすい</label>
-              <label><input type="radio" name="sampleOpacity" value="normal">ふつう</label>
-              <label><input type="radio" name="sampleOpacity" value="dark" checked>濃い</label>
-            </div>
-          </fieldset>
-
-          <p class="note">右のプレビューから印刷できます。</p>
+          <span class="count" id="entryCount">5 / 30</span>
         </div>
       </div>
     </section>
@@ -89,7 +64,7 @@
       <div class="preview-panel">
         <div class="preview-toolbar">
           <div class="title-left">
-            <span class="step">3</span>
+            <span class="step">2</span>
             <h2>プレビュー <span id="previewStatus">（A4 たて）</span></h2>
           </div>
           <div class="print-actions">
@@ -105,6 +80,35 @@
     </section>
   </main>
 
+  <div class="modal-overlay" id="idiomModal" hidden>
+    <div class="idiom-dialog" role="dialog" aria-modal="true" aria-labelledby="idiomDialogTitle">
+      <header class="dialog-header">
+        <h2 id="idiomDialogTitle">熟語からえらぶ</h2>
+        <button type="button" class="dialog-close" id="closeIdiomDialogButton" aria-label="熟語からえらぶを閉じる">×</button>
+      </header>
+
+      <section class="grade-section" aria-label="何年生の熟語？">
+        <p class="dialog-label">何年生の熟語？</p>
+        <div class="grade-buttons" id="gradeButtons"></div>
+      </section>
+
+      <div class="dialog-separator" aria-hidden="true"></div>
+
+      <section class="idiom-list" id="idiomList" aria-label="熟語リスト">
+        <p class="idiom-message">熟語を読みこんでいます。</p>
+      </section>
+
+      <footer class="dialog-footer">
+        <p class="selected-count" id="selectedCount">選んだ熟語：0こ</p>
+        <div class="dialog-actions">
+          <button type="button" class="btn-dialog-cancel" id="cancelIdiomButton" aria-label="キャンセル">キャンセル</button>
+          <button type="button" class="btn-dialog-add" id="addSelectedIdiomsButton" aria-label="選んだ熟語を追加する" disabled>追加する</button>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <script src="data/graded_idioms.js"></script>
   <script src="app.js" defer></script>
 </body>
 </html>

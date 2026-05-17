@@ -1,9 +1,10 @@
-const CACHE_NAME = "kanji-practice-v1";
+const CACHE_NAME = "kanji-practice-v4";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./data/graded_idioms.js",
   "./manifest.webmanifest",
   "./icon.svg"
 ];
@@ -24,6 +25,12 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match("./index.html"))
+    );
+    return;
+  }
   event.respondWith(
     caches.match(event.request).then((cached) => (
       cached || fetch(event.request).then((response) => {

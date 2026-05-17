@@ -1,25 +1,39 @@
-const MAX_ENTRIES = 30;
+const MAX_ENTRIES = 36;
 const PAGE_COLUMNS = 12;
 const PAGE_ROWS = 18;
 const STORAGE_KEY = "kanji-practice-sheet-v2";
-const INITIAL_WORDS = [];
-const SIZE_MAP = {
-  small: "10.5mm",
-  normal: "12mm",
-  large: "13.4mm"
-};
-const OPACITY_MAP = {
-  light: 0.38,
-  normal: 0.68,
-  dark: 1
-};
+const INITIAL_WORDS = [""];
+const SAMPLE_SIZE = "12mm";
+const SAMPLE_OPACITY = 0.68;
+const GRADES = [
+  { label: "1年", key: "小1" },
+  { label: "2年", key: "小2" },
+  { label: "3年", key: "小3" },
+  { label: "4年", key: "小4" },
+  { label: "5年", key: "小5" },
+  { label: "6年", key: "小6" }
+];
 
 let entries = [...INITIAL_WORDS];
+let idiomData = window.GRADED_IDIOMS || {};
+let idiomDataLoaded = Boolean(window.GRADED_IDIOMS);
+let currentGradeKey = "小1";
+let selectedIdioms = new Set();
+let lastFocusedElement = null;
 
 const entryList = document.getElementById("entryList");
 const entryCount = document.getElementById("entryCount");
 const previewStatus = document.getElementById("previewStatus");
 const sheetsContainer = document.getElementById("sheetsContainer");
+const addButton = document.getElementById("addButton");
+const chooseIdiomsButton = document.getElementById("chooseIdiomsButton");
+const idiomModal = document.getElementById("idiomModal");
+const gradeButtons = document.getElementById("gradeButtons");
+const idiomList = document.getElementById("idiomList");
+const selectedCount = document.getElementById("selectedCount");
+const closeIdiomDialogButton = document.getElementById("closeIdiomDialogButton");
+const cancelIdiomButton = document.getElementById("cancelIdiomButton");
+const addSelectedIdiomsButton = document.getElementById("addSelectedIdiomsButton");
 
 function loadState() {
   try {
@@ -27,31 +41,17 @@ function loadState() {
     if (Array.isArray(saved.entries) && saved.entries.length) {
       entries = saved.entries.slice(0, MAX_ENTRIES);
     }
-    if (saved.charSize) {
-      const sizeInput = document.querySelector(`input[name="charSize"][value="${saved.charSize}"]`);
-      if (sizeInput) sizeInput.checked = true;
-    }
-    if (saved.sampleOpacity) {
-      const opacityInput = document.querySelector(`input[name="sampleOpacity"][value="${saved.sampleOpacity}"]`);
-      if (opacityInput) opacityInput.checked = true;
+    if (GRADES.some((grade) => grade.key === saved.currentGradeKey)) {
+      currentGradeKey = saved.currentGradeKey;
     }
   } catch {}
 }
 
 function saveState() {
-  const settings = getSettings();
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
     entries,
-    charSize: settings.charSize,
-    sampleOpacity: settings.sampleOpacity
+    currentGradeKey
   }));
-}
-
-function getSettings() {
-  return {
-    charSize: document.querySelector("input[name='charSize']:checked").value,
-    sampleOpacity: document.querySelector("input[name='sampleOpacity']:checked").value
-  };
 }
 
 function splitPages(words) {
@@ -66,9 +66,15 @@ function getPreviewWords() {
   return entries.map((word) => word.trim()).filter(Boolean);
 }
 
+function getAvailableEntrySlots() {
+  const blankCount = entries.filter((word) => word.trim() === "").length;
+  return blankCount + Math.max(0, MAX_ENTRIES - entries.length);
+}
+
 function updateEntryCount() {
   entryCount.textContent = `${entries.length} / ${MAX_ENTRIES}`;
-  document.getElementById("addButton").disabled = entries.length >= MAX_ENTRIES;
+  addButton.disabled = entries.length >= MAX_ENTRIES;
+  chooseIdiomsButton.disabled = getAvailableEntrySlots() <= 0;
 }
 
 function renderEntryInputs() {
@@ -79,7 +85,6 @@ function renderEntryInputs() {
 
     const indexWrap = document.createElement("div");
     indexWrap.className = "row-index";
-    indexWrap.innerHTML = '<span class="drag-dots" aria-hidden="true"></span>';
     const number = document.createElement("span");
     number.textContent = index + 1;
     indexWrap.append(number);
@@ -93,6 +98,18 @@ function renderEntryInputs() {
     input.addEventListener("input", () => {
       entries[index] = input.value;
       updateAll();
+    });
+    input.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      const inputs = entryList.querySelectorAll("input");
+      const nextInput = inputs[index + 1];
+      if (nextInput) {
+        nextInput.focus();
+        nextInput.select();
+      } else {
+        addButton.focus();
+      }
     });
 
     const deleteButton = document.createElement("button");
@@ -160,15 +177,8 @@ function createPracticeGrid(words) {
 }
 
 function applySettings(sheetElement) {
-  const settings = getSettings();
-  sheetElement.style.setProperty("--sample-size", SIZE_MAP[settings.charSize]);
-  sheetElement.style.setProperty("--sample-opacity", OPACITY_MAP[settings.sampleOpacity]);
-}
-
-function applySettingsToAllSheets() {
-  document.querySelectorAll(".print-area").forEach((sheetElement) => {
-    applySettings(sheetElement);
-  });
+  sheetElement.style.setProperty("--sample-size", SAMPLE_SIZE);
+  sheetElement.style.setProperty("--sample-opacity", SAMPLE_OPACITY);
 }
 
 function createSheet(pageWords, pageIndex) {
@@ -208,11 +218,6 @@ function updateAll() {
   saveState();
 }
 
-function updateSettingsOnly() {
-  applySettingsToAllSheets();
-  saveState();
-}
-
 function addEntry() {
   if (entries.length >= MAX_ENTRIES) return;
   entries.push("");
@@ -224,23 +229,141 @@ function addEntry() {
 
 function resetAll() {
   entries = [...INITIAL_WORDS];
-  document.querySelector("input[name='charSize'][value='normal']").checked = true;
-  document.querySelector("input[name='sampleOpacity'][value='dark']").checked = true;
   renderEntryInputs();
   updateAll();
 }
 
-document.getElementById("addButton").addEventListener("click", addEntry);
+function loadIdiomData() {
+  idiomData = window.GRADED_IDIOMS || {};
+  idiomDataLoaded = Object.keys(idiomData).length > 0;
+  updateEntryCount();
+  return Promise.resolve(idiomData);
+}
+
+function renderGradeButtons() {
+  gradeButtons.innerHTML = "";
+  GRADES.forEach((grade) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "grade-button";
+    button.textContent = grade.label;
+    button.setAttribute("aria-label", `${grade.label}の熟語を表示`);
+    button.classList.toggle("is-active", grade.key === currentGradeKey);
+    button.addEventListener("click", () => {
+      currentGradeKey = grade.key;
+      saveState();
+      renderGradeButtons();
+      renderIdiomCards();
+    });
+    gradeButtons.append(button);
+  });
+}
+
+function renderIdiomCards() {
+  idiomList.innerHTML = "";
+  const idioms = idiomData[currentGradeKey] || [];
+  if (idioms.length === 0) {
+    const message = document.createElement("p");
+    message.className = "idiom-message";
+    message.textContent = idiomDataLoaded ? "この学年の熟語がありません。" : "熟語を読みこめませんでした。";
+    idiomList.append(message);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  idioms.forEach((idiom) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "idiom-card";
+    button.textContent = idiom;
+    button.setAttribute("aria-label", `${idiom}をえらぶ`);
+    button.classList.toggle("is-selected", selectedIdioms.has(idiom));
+    button.addEventListener("click", () => {
+      if (selectedIdioms.has(idiom)) {
+        selectedIdioms.delete(idiom);
+        button.classList.remove("is-selected");
+      } else {
+        selectedIdioms.add(idiom);
+        button.classList.add("is-selected");
+      }
+      updateSelectedCount();
+    });
+    fragment.append(button);
+  });
+  idiomList.append(fragment);
+}
+
+function updateSelectedCount() {
+  const count = selectedIdioms.size;
+  selectedCount.textContent = `選んだ熟語：${count}こ`;
+  addSelectedIdiomsButton.disabled = count === 0;
+  addSelectedIdiomsButton.textContent = count === 0 ? "追加する" : `${count}こ追加する`;
+}
+
+async function openIdiomDialog() {
+  lastFocusedElement = document.activeElement;
+  selectedIdioms = new Set();
+  idiomModal.hidden = false;
+  idiomList.innerHTML = '<p class="idiom-message">熟語を読みこんでいます。</p>';
+  updateSelectedCount();
+  closeIdiomDialogButton.focus();
+  await loadIdiomData();
+  renderGradeButtons();
+  renderIdiomCards();
+  updateSelectedCount();
+}
+
+function closeIdiomDialog() {
+  idiomModal.hidden = true;
+  selectedIdioms.clear();
+  if (lastFocusedElement instanceof HTMLElement) {
+    lastFocusedElement.focus();
+  }
+}
+
+function addSelectedIdioms() {
+  if (selectedIdioms.size === 0) return;
+  const existing = new Set(entries.map((word) => word.trim()).filter(Boolean));
+  const selected = Array.from(selectedIdioms).filter((idiom) => !existing.has(idiom));
+
+  selected.forEach((idiom) => {
+    if (getAvailableEntrySlots() <= 0) return;
+    const blankIndex = entries.findIndex((word) => word.trim() === "");
+    if (blankIndex >= 0) {
+      entries[blankIndex] = idiom;
+    } else {
+      entries.push(idiom);
+    }
+    existing.add(idiom);
+  });
+
+  renderEntryInputs();
+  updateAll();
+  closeIdiomDialog();
+}
+
+addButton.addEventListener("click", addEntry);
 document.getElementById("headerResetButton").addEventListener("click", resetAll);
 document.getElementById("printButton").addEventListener("click", () => window.print());
-
-document.querySelectorAll("input[name='charSize'], input[name='sampleOpacity']").forEach((input) => {
-  input.addEventListener("change", updateSettingsOnly);
+chooseIdiomsButton.addEventListener("click", openIdiomDialog);
+closeIdiomDialogButton.addEventListener("click", closeIdiomDialog);
+cancelIdiomButton.addEventListener("click", closeIdiomDialog);
+addSelectedIdiomsButton.addEventListener("click", addSelectedIdioms);
+idiomModal.addEventListener("click", (event) => {
+  if (event.target === idiomModal) {
+    closeIdiomDialog();
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !idiomModal.hidden) {
+    closeIdiomDialog();
+  }
 });
 
 loadState();
 renderEntryInputs();
 renderPreview();
+loadIdiomData();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
