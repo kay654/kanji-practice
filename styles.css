@@ -27,6 +27,8 @@ body {
   overflow: hidden;
   background: var(--bg);
   color: var(--ink);
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
 }
 
 button,
@@ -345,6 +347,8 @@ h2 {
 
 .preview-stage {
   --preview-scale: 0.48;
+  --preview-w: 100.8mm;
+  --preview-h: 142.56mm;
   display: grid;
   justify-content: center;
   gap: 24px;
@@ -354,8 +358,9 @@ h2 {
 }
 
 .sheet-preview {
-  width: fit-content;
-  height: fit-content;
+  position: relative;
+  width: var(--preview-w);
+  height: var(--preview-h);
   background: #ffffff;
   overflow: visible;
   overflow-anchor: none;
@@ -363,18 +368,23 @@ h2 {
 }
 
 .print-area {
-  position: static;
+  position: absolute;
+  top: 0;
+  left: 0;
   width: var(--paper-w);
   height: var(--paper-h);
   background: #ffffff;
   border: 1px solid #d3d6db;
   box-shadow: 0 3px 12px rgba(15, 23, 42, 0.16);
   overflow: hidden;
-  transform: none;
-  transform-origin: initial;
-  zoom: var(--preview-scale);
+  transform: scale(var(--preview-scale));
+  transform-origin: top left;
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
+}
+
+.print-root {
+  display: none;
 }
 
 .sheet {
@@ -402,6 +412,7 @@ h2 {
   font-weight: 800;
   letter-spacing: 1mm;
   line-height: 1.5;
+  white-space: nowrap;
 }
 
 .sheet-date-field,
@@ -414,6 +425,7 @@ h2 {
   color: #111827;
   font-size: 2.6mm;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .sheet-date-value {
@@ -650,70 +662,109 @@ h2 {
   margin: 0;
 }
 
+body.is-printing {
+  min-width: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 !important;
+  overflow: visible !important;
+  background: #ffffff !important;
+}
+
+body.is-printing .app-header,
+body.is-printing .controls,
+body.is-printing .app-shell,
+body.is-printing .modal-overlay {
+  display: none !important;
+}
+
+body.is-printing .print-root {
+  display: block !important;
+}
+
+body.is-printing .print-page {
+  display: block !important;
+  position: static !important;
+  width: 210mm !important;
+  height: 297mm !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: #ffffff !important;
+  break-after: page;
+  page-break-after: always;
+}
+
+body.is-printing .print-root .print-area {
+  position: static !important;
+  display: block !important;
+  width: 210mm !important;
+  height: 297mm !important;
+  margin: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+  transform-origin: initial !important;
+}
+
+body.is-printing .print-page:last-child {
+  break-after: auto;
+  page-break-after: auto;
+}
+
 @media print {
   body {
-    min-width: 0;
-    height: auto;
-    margin: 0;
-    overflow: visible;
-    background: #ffffff;
+    min-width: 0 !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    background: #ffffff !important;
   }
 
   .app-header,
   .controls,
-  .preview-toolbar,
+  .app-shell,
   .modal-overlay {
     display: none !important;
   }
 
-  .app-shell,
-  .preview-wrap,
-  .preview-panel,
-  .preview-stage {
+  .print-root {
+    display: block !important;
+  }
+
+  .print-page {
     display: block !important;
     position: static !important;
-    width: auto !important;
-    height: auto !important;
-    min-height: 0 !important;
+    width: 210mm !important;
+    height: 297mm !important;
     margin: 0 !important;
     padding: 0 !important;
-    border: 0 !important;
-    overflow: visible !important;
+    overflow: hidden !important;
     background: #ffffff !important;
-    box-shadow: none !important;
-  }
-
-  .preview-stage {
-    position: static !important;
-  }
-
-  .sheet-preview {
-    display: block;
-    width: 210mm;
-    height: 297mm;
-    margin: 0;
     break-after: page;
     page-break-after: always;
   }
 
-  .print-area {
-    position: static;
-    width: 210mm;
-    height: 297mm;
-    margin: 0;
-    border: 0;
-    box-shadow: none;
-    transform: none;
-    zoom: 1;
+  .print-root .print-area {
+    position: static !important;
+    display: block !important;
+    width: 210mm !important;
+    height: 297mm !important;
+    margin: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    transform: none !important;
+    transform-origin: initial !important;
   }
 
-  .sheet-preview:last-child {
+  .print-page:last-child {
     break-after: auto;
     page-break-after: auto;
   }
 }
 
-@media (max-width: 1120px) {
+@media screen and (max-width: 1120px) {
   body {
     min-width: 760px;
   }
@@ -752,10 +803,12 @@ h2 {
 
   .preview-stage {
     --preview-scale: 0.41;
+    --preview-w: 86.1mm;
+    --preview-h: 121.77mm;
   }
 }
 
-@media (max-width: 860px) {
+@media screen and (max-width: 860px) {
   body {
     min-width: 0;
   }
@@ -807,6 +860,8 @@ h2 {
 
   .preview-stage {
     --preview-scale: 0.34;
+    --preview-w: 71.4mm;
+    --preview-h: 100.98mm;
   }
 
   .modal-overlay {
@@ -825,5 +880,368 @@ h2 {
 
   .dialog-actions {
     justify-content: flex-end;
+  }
+}
+
+@media screen and (max-width: 640px), screen and (orientation: portrait) and (max-width: 900px) {
+  body {
+    min-width: 0;
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: auto;
+  }
+
+  .app-header {
+    position: sticky;
+    align-items: center;
+    height: auto;
+    min-height: 64px;
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .brand {
+    grid-template-columns: 34px minmax(0, 1fr);
+    column-gap: 10px;
+  }
+
+  .brand-mark {
+    width: 32px;
+    height: 32px;
+  }
+
+  .brand h1 {
+    font-size: 17px;
+    line-height: 1.2;
+  }
+
+  .brand p {
+    margin-top: 2px;
+    font-size: 11px;
+    line-height: 1.25;
+  }
+
+  .header-actions {
+    gap: 6px;
+  }
+
+  .btn-reset {
+    min-width: 44px;
+    width: 44px;
+    padding: 0;
+    font-size: 0;
+  }
+
+  .btn-reset .icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .app-shell {
+    position: static;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    padding: 10px;
+  }
+
+  .controls,
+  .preview-wrap {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    scrollbar-gutter: auto;
+    contain: none;
+  }
+
+  .controls {
+    padding: 0;
+    border-right: 0;
+  }
+
+  .preview-wrap {
+    padding: 0 0 12px;
+    background: transparent;
+  }
+
+  .panel,
+  .preview-panel {
+    padding: 14px 12px;
+    border-radius: 8px;
+  }
+
+  .preview-panel {
+    min-height: 0;
+  }
+
+  .panel-title,
+  .preview-toolbar {
+    align-items: flex-start;
+  }
+
+  .subtext {
+    margin: 10px 0 12px 2px;
+    font-size: 12px;
+  }
+
+  .entry-row {
+    grid-template-columns: 24px minmax(0, 1fr) 36px;
+    gap: 7px;
+  }
+
+  .entry-row input {
+    height: 42px;
+    font-size: 17px;
+  }
+
+  .delete-btn {
+    width: 34px;
+    height: 34px;
+    min-height: 34px;
+  }
+
+  .add-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .entry-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    gap: 8px;
+  }
+
+  .btn-add,
+  .btn-choose {
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 10px;
+  }
+
+  .count {
+    align-self: flex-end;
+    font-size: 12px;
+  }
+
+  .preview-toolbar {
+    flex-direction: row;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .print-actions {
+    gap: 8px;
+  }
+
+  .btn-blue {
+    min-width: 44px;
+    width: 44px;
+    padding: 0;
+    font-size: 0;
+  }
+
+  .btn-blue .icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .preview-stage {
+    --preview-scale: 0.42;
+    --preview-w: 88.2mm;
+    --preview-h: 124.74mm;
+    gap: 16px;
+    padding-bottom: 6px;
+  }
+
+  .print-area {
+    box-shadow: 0 2px 9px rgba(15, 23, 42, 0.14);
+  }
+
+  .modal-overlay {
+    align-items: end;
+    padding: 8px;
+  }
+
+  .idiom-dialog {
+    width: 100%;
+    max-height: 94vh;
+    max-height: 94dvh;
+    grid-template-rows: auto auto auto minmax(180px, 1fr) auto;
+    border-radius: 8px 8px 0 0;
+  }
+
+  .dialog-header {
+    padding: 14px 14px 10px;
+  }
+
+  .grade-section {
+    padding: 12px 14px 10px;
+  }
+
+  .grade-buttons {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .grade-button {
+    min-width: 0;
+    padding: 0 8px;
+  }
+
+  .dialog-separator {
+    margin: 0 14px;
+  }
+
+  .idiom-list {
+    grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+    gap: 8px;
+    padding: 10px 14px 14px;
+  }
+
+  .dialog-footer {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 14px 14px;
+  }
+
+  .dialog-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    gap: 8px;
+  }
+
+  .btn-dialog-cancel,
+  .btn-dialog-add {
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 10px;
+  }
+}
+
+@media screen and (max-width: 390px) {
+  .app-header {
+    padding: 8px 10px;
+  }
+
+  .brand h1 {
+    font-size: 16px;
+  }
+
+  .brand p {
+    display: none;
+  }
+
+  .app-shell {
+    padding: 8px;
+  }
+
+  .panel,
+  .preview-panel {
+    padding: 12px 10px;
+  }
+
+  .entry-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-stage {
+    --preview-scale: 0.36;
+    --preview-w: 75.6mm;
+    --preview-h: 106.92mm;
+  }
+
+  .idiom-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media screen and (max-width: 340px) {
+  .preview-stage {
+    --preview-scale: 0.33;
+    --preview-w: 69.3mm;
+    --preview-h: 98.01mm;
+  }
+}
+
+@media screen and (max-height: 480px) and (orientation: landscape) {
+  .modal-overlay {
+    align-items: stretch;
+    padding: 6px;
+  }
+
+  .idiom-dialog {
+    max-height: calc(100dvh - 12px);
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    border-radius: 8px;
+  }
+
+  .dialog-header {
+    padding: 8px 12px 6px;
+  }
+
+  .dialog-header h2 {
+    font-size: 17px;
+  }
+
+  .dialog-close {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+  }
+
+  .grade-section {
+    padding: 8px 12px 6px;
+  }
+
+  .dialog-label {
+    margin-bottom: 6px;
+  }
+
+  .grade-buttons {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .grade-button {
+    min-height: 38px;
+  }
+
+  .dialog-separator {
+    margin: 0 12px;
+  }
+
+  .idiom-list {
+    min-height: 0;
+    grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+    gap: 6px;
+    padding: 8px 12px;
+  }
+
+  .idiom-card {
+    min-height: 40px;
+    font-size: 16px;
+  }
+
+  .dialog-footer {
+    align-items: center;
+    flex-direction: row;
+    gap: 10px;
+    padding: 8px 12px;
+  }
+
+  .dialog-actions {
+    display: flex;
+    flex: 0 0 auto;
+  }
+
+  .btn-dialog-cancel,
+  .btn-dialog-add {
+    min-height: 40px;
   }
 }

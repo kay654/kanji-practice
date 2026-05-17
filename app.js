@@ -25,6 +25,7 @@ const entryList = document.getElementById("entryList");
 const entryCount = document.getElementById("entryCount");
 const previewStatus = document.getElementById("previewStatus");
 const sheetsContainer = document.getElementById("sheetsContainer");
+const printRoot = document.getElementById("printRoot");
 const addButton = document.getElementById("addButton");
 const chooseIdiomsButton = document.getElementById("chooseIdiomsButton");
 const idiomModal = document.getElementById("idiomModal");
@@ -181,10 +182,7 @@ function applySettings(sheetElement) {
   sheetElement.style.setProperty("--sample-opacity", SAMPLE_OPACITY);
 }
 
-function createSheet(pageWords, pageIndex) {
-  const preview = document.createElement("div");
-  preview.className = "sheet-preview";
-
+function createPrintArea(pageWords, pageIndex) {
   const printArea = document.createElement("div");
   printArea.className = "print-area";
   applySettings(printArea);
@@ -195,16 +193,33 @@ function createSheet(pageWords, pageIndex) {
   sheet.append(createSheetHeader(), createPracticeGrid(pageWords));
 
   printArea.append(sheet);
+  return printArea;
+}
+
+function createSheet(pageWords, pageIndex) {
+  const preview = document.createElement("div");
+  preview.className = "sheet-preview";
+  const printArea = createPrintArea(pageWords, pageIndex);
+
   preview.append(printArea);
   return preview;
+}
+
+function createPrintPage(pageWords, pageIndex) {
+  const page = document.createElement("div");
+  page.className = "print-page";
+  page.append(createPrintArea(pageWords, pageIndex));
+  return page;
 }
 
 function renderPreview() {
   const words = getPreviewWords();
   const pages = splitPages(words);
   sheetsContainer.innerHTML = "";
+  printRoot.innerHTML = "";
   pages.forEach((pageWords, pageIndex) => {
     sheetsContainer.append(createSheet(pageWords, pageIndex));
+    printRoot.append(createPrintPage(pageWords, pageIndex));
   });
 
   const sheetCount = pages.length;
@@ -342,9 +357,27 @@ function addSelectedIdioms() {
   closeIdiomDialog();
 }
 
+function cleanupPrintMode() {
+  document.body.classList.remove("is-printing");
+  window.removeEventListener("afterprint", cleanupPrintMode);
+  window.removeEventListener("focus", cleanupPrintMode);
+}
+
+function printSheets() {
+  document.body.classList.add("is-printing");
+  window.addEventListener("afterprint", cleanupPrintMode, { once: true });
+  window.addEventListener("focus", cleanupPrintMode, { once: true });
+  setTimeout(cleanupPrintMode, 10000);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      window.print();
+    });
+  });
+}
+
 addButton.addEventListener("click", addEntry);
 document.getElementById("headerResetButton").addEventListener("click", resetAll);
-document.getElementById("printButton").addEventListener("click", () => window.print());
+document.getElementById("printButton").addEventListener("click", printSheets);
 chooseIdiomsButton.addEventListener("click", openIdiomDialog);
 closeIdiomDialogButton.addEventListener("click", closeIdiomDialog);
 cancelIdiomButton.addEventListener("click", closeIdiomDialog);
