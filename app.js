@@ -1,7 +1,8 @@
 const MAX_ENTRIES = 36;
 const PAGE_COLUMNS = 12;
 const PAGE_ROWS = 18;
-const STORAGE_KEY = "kanji-practice-sheet-v2";
+const STORAGE_KEY = "kanji-practice-sheet";
+const STORAGE_KEY_PREFIX = "kanji-practice-sheet-";
 const INITIAL_WORDS = [""];
 const SAMPLE_SIZE = "12mm";
 const SAMPLE_OPACITY = 0.68;
@@ -46,6 +47,7 @@ function loadState() {
       currentGradeKey = saved.currentGradeKey;
     }
   } catch {}
+  cleanupStorage();
 }
 
 function saveState() {
@@ -53,6 +55,13 @@ function saveState() {
     entries,
     currentGradeKey
   }));
+  cleanupStorage();
+}
+
+function cleanupStorage() {
+  Object.keys(localStorage)
+    .filter((key) => key.startsWith(STORAGE_KEY_PREFIX))
+    .forEach((key) => localStorage.removeItem(key));
 }
 
 function splitPages(words) {

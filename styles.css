@@ -12,6 +12,7 @@
   --paper-h: 297mm;
   --cell: 15.35mm;
   --sample-opacity: 1;
+  --sheet-font: "Klee One", "Yu Kyokasho", "UD Digi Kyokasho N-R", "Hiragino Mincho ProN", "Yu Mincho", "MS Mincho", serif;
   color-scheme: light;
   font-family: "Yu Gothic", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
 }
@@ -392,6 +393,7 @@ h2 {
   height: 100%;
   padding: 5mm 6mm;
   background: #ffffff;
+  font-family: var(--sheet-font);
 }
 
 .sheet-header {
@@ -407,9 +409,8 @@ h2 {
 .sheet-title {
   margin: 0;
   color: #0c6c3d;
-  font-family: "Yu Mincho", "Hiragino Mincho ProN", "MS Mincho", serif;
   font-size: 3.8mm;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 1mm;
   line-height: 1.5;
   white-space: nowrap;
@@ -499,9 +500,9 @@ h2 {
   position: relative;
   z-index: 1;
   color: rgba(0, 0, 0, var(--sample-opacity));
-  font-family: "Yu Mincho", "Hiragino Mincho ProN", "MS Mincho", serif;
+  font-family: var(--sheet-font);
   font-size: var(--sample-size, 13mm);
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1;
 }
 
