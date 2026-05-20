@@ -179,7 +179,8 @@ input:focus-visible {
 .preview-panel {
   min-height: 100%;
   border-radius: 8px;
-  padding: 18px 20px;
+  padding: 18px 12px;
+  container-type: inline-size;
 }
 
 .panel-title,
@@ -347,9 +348,9 @@ h2 {
 }
 
 .preview-stage {
-  --preview-scale: 0.48;
-  --preview-w: 100.8mm;
-  --preview-h: 142.56mm;
+  --preview-scale: 0.58;
+  --preview-w: 121.8mm;
+  --preview-h: 172.26mm;
   display: grid;
   justify-content: center;
   gap: 24px;
@@ -382,6 +383,30 @@ h2 {
   transform-origin: top left;
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
+}
+
+@container (min-width: 660px) {
+  .preview-stage {
+    --preview-scale: 0.64;
+    --preview-w: 134.4mm;
+    --preview-h: 190.08mm;
+  }
+}
+
+@container (min-width: 760px) {
+  .preview-stage {
+    --preview-scale: 0.7;
+    --preview-w: 147mm;
+    --preview-h: 207.9mm;
+  }
+}
+
+@container (min-width: 900px) {
+  .preview-stage {
+    --preview-scale: 0.76;
+    --preview-w: 159.6mm;
+    --preview-h: 225.72mm;
+  }
 }
 
 .print-root {
@@ -803,9 +828,9 @@ body.is-printing .print-page:last-child {
   }
 
   .preview-stage {
-    --preview-scale: 0.41;
-    --preview-w: 86.1mm;
-    --preview-h: 121.77mm;
+    --preview-scale: 0.48;
+    --preview-w: 100.8mm;
+    --preview-h: 142.56mm;
   }
 }
 
