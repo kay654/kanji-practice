@@ -712,20 +712,22 @@ body.is-printing .print-page {
   display: block !important;
   position: static !important;
   width: 210mm !important;
-  height: 297mm !important;
+  height: auto !important;
+  min-height: 0 !important;
   margin: 0 !important;
   padding: 0 !important;
   overflow: hidden !important;
   background: #ffffff !important;
-  break-after: page;
-  page-break-after: always;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 body.is-printing .print-root .print-area {
   position: static !important;
   display: block !important;
   width: 210mm !important;
-  height: 297mm !important;
+  height: auto !important;
+  --cell: 15mm;
   margin: 0 !important;
   border: 0 !important;
   box-shadow: none !important;
@@ -733,9 +735,20 @@ body.is-printing .print-root .print-area {
   transform-origin: initial !important;
 }
 
-body.is-printing .print-page:last-child {
-  break-after: auto;
-  page-break-after: auto;
+body.is-printing .sheet {
+  height: auto !important;
+  padding-top: 4mm;
+  padding-bottom: 4mm;
+}
+
+body.is-printing .sheet-header {
+  min-height: 5.5mm;
+  margin-bottom: 1.5mm;
+}
+
+body.is-printing .print-page + .print-page {
+  break-before: page;
+  page-break-before: always;
 }
 
 @media print {
@@ -763,20 +776,22 @@ body.is-printing .print-page:last-child {
     display: block !important;
     position: static !important;
     width: 210mm !important;
-    height: 297mm !important;
+    height: auto !important;
+    min-height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
     overflow: hidden !important;
     background: #ffffff !important;
-    break-after: page;
-    page-break-after: always;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   .print-root .print-area {
     position: static !important;
     display: block !important;
     width: 210mm !important;
-    height: 297mm !important;
+    height: auto !important;
+    --cell: 15mm;
     margin: 0 !important;
     border: 0 !important;
     box-shadow: none !important;
@@ -784,9 +799,20 @@ body.is-printing .print-page:last-child {
     transform-origin: initial !important;
   }
 
-  .print-page:last-child {
-    break-after: auto;
-    page-break-after: auto;
+  .sheet {
+    height: auto !important;
+    padding-top: 4mm;
+    padding-bottom: 4mm;
+  }
+
+  .sheet-header {
+    min-height: 5.5mm;
+    margin-bottom: 1.5mm;
+  }
+
+  .print-page + .print-page {
+    break-before: page;
+    page-break-before: always;
   }
 }
 

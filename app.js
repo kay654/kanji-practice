@@ -372,8 +372,19 @@ function cleanupPrintMode() {
   window.removeEventListener("focus", cleanupPrintMode);
 }
 
-function printSheets() {
+function waitForPrintFonts() {
+  if (!document.fonts) return Promise.resolve();
+  return Promise.race([
+    document.fonts.ready,
+    new Promise((resolve) => {
+      setTimeout(resolve, 1200);
+    })
+  ]);
+}
+
+async function printSheets() {
   document.body.classList.add("is-printing");
+  await waitForPrintFonts();
   window.addEventListener("afterprint", cleanupPrintMode, { once: true });
   window.addEventListener("focus", cleanupPrintMode, { once: true });
   setTimeout(cleanupPrintMode, 10000);
