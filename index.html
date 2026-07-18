@@ -21,8 +21,10 @@
   <header class="app-header">
     <div class="brand">
       <img class="brand-mark" src="icon.svg" alt="" aria-hidden="true">
-      <h1>漢字れんしゅうシート作成</h1>
-      <p>テストでまちがえた漢字を練習しよう！</p>
+      <div>
+        <h1>漢字れんしゅうシート作成</h1>
+        <p>テストでまちがえた漢字を練習しよう！</p>
+      </div>
     </div>
     <div class="header-actions">
       <button type="button" class="btn-outline btn-reset" id="headerResetButton">
@@ -36,13 +38,12 @@
     <section class="controls" aria-label="入力と設定">
       <div class="panel">
         <div class="panel-title">
-          <div class="title-left">
-            <span class="step">1</span>
-            <h2>練習したい漢字・熟語を入力</h2>
-          </div>
+          <span class="step">1</span>
+          <h2>練習したい漢字・熟語を入力</h2>
         </div>
         <p class="subtext">1行に1つずつ入力してください（最大36個まで）</p>
         <div class="entry-list" id="entryList"></div>
+        <p class="visually-hidden" id="reorderStatus" aria-live="polite"></p>
         <div class="add-row">
           <div class="entry-actions">
             <button type="button" class="btn-add" id="addButton">
@@ -61,14 +62,22 @@
     <section class="preview-wrap" aria-label="印刷プレビュー">
       <div class="preview-panel">
         <div class="preview-toolbar">
-          <div class="title-left">
+          <div class="panel-title">
             <span class="step">2</span>
-            <h2>プレビュー <span id="previewStatus">（A4 たて）</span></h2>
+            <h2>プレビュー</h2>
+            <div class="preview-zoom-controls" role="group" aria-label="プレビューの表示倍率">
+              <button type="button" class="btn-zoom" id="zoomOutButton" aria-label="プレビューを縮小" disabled>−</button>
+              <button type="button" class="btn-zoom" id="zoomInButton" aria-label="プレビューを拡大">＋</button>
+            </div>
           </div>
-          <div class="print-actions">
-            <button type="button" class="btn-blue" id="printButton">
+          <div class="preview-actions">
+            <button type="button" class="btn-history" id="openHistoryButton" aria-label="履歴">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v6h6"></path><path d="M12 7v5l3 2"></path></svg>
+              <span class="button-label">履歴</span>
+            </button>
+            <button type="button" class="btn-blue" id="printButton" aria-label="印刷する">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v7H6z"></path></svg>
-              印刷する
+              <span class="button-label">印刷する</span>
             </button>
           </div>
         </div>
@@ -79,6 +88,25 @@
   </main>
 
   <div class="print-root" id="printRoot" aria-hidden="true"></div>
+
+  <div class="modal-overlay" id="historyModal" hidden>
+    <div class="history-dialog" role="dialog" aria-modal="true" aria-labelledby="historyDialogTitle">
+      <header class="dialog-header">
+        <h2 id="historyDialogTitle">印刷履歴</h2>
+        <button type="button" class="dialog-close" id="closeHistoryButton" aria-label="印刷履歴を閉じる">×</button>
+      </header>
+      <p class="history-help" id="historyHelp">印刷した内容を新しい順に最大100件保存します。</p>
+      <div class="history-list" id="historyList" aria-label="印刷履歴の一覧"></div>
+      <p class="dialog-message history-message" id="historyMessage" aria-live="polite"></p>
+      <footer class="dialog-footer">
+        <span></span>
+        <div class="dialog-actions">
+          <button type="button" class="btn-dialog-cancel" id="cancelHistoryButton">キャンセル</button>
+          <button type="button" class="btn-dialog-add" id="restoreHistoryButton" disabled>復元する</button>
+        </div>
+      </footer>
+    </div>
+  </div>
 
   <div class="modal-overlay" id="idiomModal" hidden>
     <div class="idiom-dialog" role="dialog" aria-modal="true" aria-labelledby="idiomDialogTitle">

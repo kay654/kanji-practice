@@ -3,6 +3,9 @@ const PAGE_COLUMNS = 12;
 const PAGE_ROWS = 18;
 const STORAGE_KEY = "kanji-practice-sheet";
 const STORAGE_KEY_PREFIX = "kanji-practice-sheet-";
+const HISTORY_STORAGE_KEY = "kanji-practice-print-history";
+const MAX_HISTORY_ITEMS = 100;
+const PREVIEW_ZOOM_STEP = 0.08;
 const INITIAL_WORDS = [""];
 const SAMPLE_SIZE = "12mm";
 const SAMPLE_OPACITY = 0.68;
@@ -21,10 +24,14 @@ let idiomDataLoaded = Boolean(window.GRADED_IDIOMS);
 let currentGradeKey = "小1";
 let selectedIdioms = new Set();
 let lastFocusedElement = null;
+let pointerReorder = null;
+let selectedHistoryId = null;
+let previewZoomSteps = 0;
+let previewResizeFrame = 0;
 
 const entryList = document.getElementById("entryList");
 const entryCount = document.getElementById("entryCount");
-const previewStatus = document.getElementById("previewStatus");
+const reorderStatus = document.getElementById("reorderStatus");
 const sheetsContainer = document.getElementById("sheetsContainer");
 const printRoot = document.getElementById("printRoot");
 const addButton = document.getElementById("addButton");
@@ -36,12 +43,22 @@ const selectedCount = document.getElementById("selectedCount");
 const closeIdiomDialogButton = document.getElementById("closeIdiomDialogButton");
 const cancelIdiomButton = document.getElementById("cancelIdiomButton");
 const addSelectedIdiomsButton = document.getElementById("addSelectedIdiomsButton");
+const openHistoryButton = document.getElementById("openHistoryButton");
+const historyModal = document.getElementById("historyModal");
+const closeHistoryButton = document.getElementById("closeHistoryButton");
+const cancelHistoryButton = document.getElementById("cancelHistoryButton");
+const restoreHistoryButton = document.getElementById("restoreHistoryButton");
+const historyList = document.getElementById("historyList");
+const historyHelp = document.getElementById("historyHelp");
+const historyMessage = document.getElementById("historyMessage");
+const zoomOutButton = document.getElementById("zoomOutButton");
+const zoomInButton = document.getElementById("zoomInButton");
 
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
     if (Array.isArray(saved.entries) && saved.entries.length) {
-      entries = saved.entries.slice(0, MAX_ENTRIES);
+      entries = saved.entries.slice(0, MAX_ENTRIES).map((word) => String(word));
     }
     if (GRADES.some((grade) => grade.key === saved.currentGradeKey)) {
       currentGradeKey = saved.currentGradeKey;
@@ -56,6 +73,170 @@ function saveState() {
     currentGradeKey
   }));
   cleanupStorage();
+}
+
+function loadPrintHistory() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) || "[]");
+    if (!Array.isArray(saved)) return [];
+    return saved
+      .filter((item) => item && typeof item.id === "string" && Array.isArray(item.entries))
+      .slice(0, MAX_HISTORY_ITEMS)
+      .map((item) => ({
+        id: item.id,
+        printedAt: String(item.printedAt || ""),
+        entries: item.entries.slice(0, MAX_ENTRIES).map((word) => String(word)).filter((word) => word.trim())
+      }))
+      .filter((item) => item.entries.length);
+  } catch {
+    return [];
+  }
+}
+
+function savePrintHistory(history) {
+  const remaining = history.slice(0, MAX_HISTORY_ITEMS);
+  while (remaining.length) {
+    try {
+      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(remaining));
+      return;
+    } catch {
+      remaining.pop();
+    }
+  }
+  try {
+    localStorage.removeItem(HISTORY_STORAGE_KEY);
+  } catch {}
+}
+
+function createHistoryId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function saveCurrentPrintHistory() {
+  const printedEntries = getPreviewWords();
+  if (!printedEntries.length) return;
+  const signature = JSON.stringify(printedEntries);
+  const history = loadPrintHistory().filter((item) => JSON.stringify(item.entries) !== signature);
+  history.unshift({
+    id: createHistoryId(),
+    printedAt: new Date().toISOString(),
+    entries: printedEntries
+  });
+  savePrintHistory(history);
+}
+
+function formatHistoryDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "日時不明";
+  return date.toLocaleString("ja-JP", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function renderPrintHistory() {
+  const history = loadPrintHistory();
+  historyList.innerHTML = "";
+  historyHelp.textContent = history.length
+    ? `印刷した内容を新しい順に保存しています（${history.length}／${MAX_HISTORY_ITEMS}件）。`
+    : `印刷した内容を新しい順に最大${MAX_HISTORY_ITEMS}件保存します。`;
+  if (!history.some((item) => item.id === selectedHistoryId)) selectedHistoryId = null;
+
+  if (!history.length) {
+    const empty = document.createElement("p");
+    empty.className = "history-empty";
+    empty.textContent = "印刷履歴はまだありません。";
+    historyList.append(empty);
+  }
+
+  history.forEach((item) => {
+    const formattedDate = formatHistoryDate(item.printedAt);
+    const row = document.createElement("article");
+    row.className = "history-item";
+    row.dataset.historyId = item.id;
+
+    const choice = document.createElement("button");
+    choice.type = "button";
+    choice.className = "history-choice";
+    choice.setAttribute("aria-pressed", String(item.id === selectedHistoryId));
+
+    const date = document.createElement("span");
+    date.className = "history-date";
+    date.textContent = formattedDate;
+    const count = document.createElement("span");
+    count.className = "history-count";
+    count.textContent = `${item.entries.length}個`;
+    const preview = document.createElement("span");
+    preview.className = "history-preview";
+    preview.textContent = `${item.entries.slice(0, 3).join(" ／ ")}${item.entries.length > 3 ? " ほか" : ""}`;
+    choice.append(date, count, preview);
+    choice.addEventListener("click", () => {
+      selectedHistoryId = item.id;
+      historyMessage.textContent = "";
+      updateHistorySelection();
+    });
+
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "history-delete";
+    deleteButton.textContent = "削除";
+    deleteButton.setAttribute("aria-label", `${formattedDate}の履歴を削除`);
+    deleteButton.addEventListener("click", () => {
+      savePrintHistory(loadPrintHistory().filter((entry) => entry.id !== item.id));
+      if (selectedHistoryId === item.id) selectedHistoryId = null;
+      historyMessage.textContent = `${formattedDate}の履歴を削除しました。`;
+      renderPrintHistory();
+    });
+
+    row.append(choice, deleteButton);
+    historyList.append(row);
+  });
+  updateHistorySelection();
+}
+
+function updateHistorySelection() {
+  historyList.querySelectorAll(".history-item").forEach((row) => {
+    const selected = row.dataset.historyId === selectedHistoryId;
+    row.classList.toggle("is-selected", selected);
+    row.querySelector(".history-choice")?.setAttribute("aria-pressed", String(selected));
+  });
+  restoreHistoryButton.disabled = !selectedHistoryId;
+}
+
+function openHistoryDialog() {
+  lastFocusedElement = document.activeElement;
+  selectedHistoryId = null;
+  historyMessage.textContent = "";
+  renderPrintHistory();
+  historyModal.hidden = false;
+  (historyList.querySelector(".history-choice") || closeHistoryButton).focus();
+}
+
+function closeHistoryDialog() {
+  historyModal.hidden = true;
+  selectedHistoryId = null;
+  historyMessage.textContent = "";
+  if (lastFocusedElement instanceof HTMLElement) lastFocusedElement.focus();
+  lastFocusedElement = null;
+}
+
+function restoreSelectedPrintHistory() {
+  const selected = loadPrintHistory().find((item) => item.id === selectedHistoryId);
+  if (!selected) {
+    historyMessage.textContent = "復元する履歴を選択してください。";
+    updateHistorySelection();
+    return;
+  }
+  entries = selected.entries.length ? [...selected.entries] : [...INITIAL_WORDS];
+  renderEntryInputs();
+  updateAll();
+  closeHistoryDialog();
 }
 
 function cleanupStorage() {
@@ -92,12 +273,26 @@ function renderEntryInputs() {
   entries.forEach((word, index) => {
     const row = document.createElement("div");
     row.className = "entry-row";
+    row.dataset.index = index;
 
     const indexWrap = document.createElement("div");
-    indexWrap.className = "row-index";
+    indexWrap.className = "row-order-control";
+    const dragHandle = document.createElement("button");
+    dragHandle.type = "button";
+    dragHandle.className = "drag-handle";
+    dragHandle.setAttribute("aria-label", `${index + 1}番の項目を並べ替え`);
+    dragHandle.setAttribute("aria-keyshortcuts", "Alt+ArrowUp Alt+ArrowDown");
+    dragHandle.title = "ドラッグ、または Alt＋↑／↓ で並べ替え";
+    dragHandle.disabled = entries.length <= 1;
+    dragHandle.addEventListener("pointerdown", (event) => beginPointerReorder(event, index, row, dragHandle));
+    dragHandle.addEventListener("pointermove", updatePointerReorder);
+    dragHandle.addEventListener("pointerup", finishPointerReorder);
+    dragHandle.addEventListener("pointercancel", cancelPointerReorder);
+    dragHandle.addEventListener("keydown", (event) => handleReorderKeydown(event, index));
     const number = document.createElement("span");
+    number.className = "row-number";
     number.textContent = index + 1;
-    indexWrap.append(number);
+    indexWrap.append(dragHandle, number);
 
     const input = document.createElement("input");
     input.type = "text";
@@ -139,6 +334,90 @@ function renderEntryInputs() {
     entryList.append(row);
   });
   updateEntryCount();
+}
+
+function moveEntry(sourceIndex, targetIndex, focusHandle = true) {
+  if (sourceIndex === targetIndex || sourceIndex < 0 || targetIndex < 0 || sourceIndex >= entries.length || targetIndex >= entries.length) return;
+  const [movedEntry] = entries.splice(sourceIndex, 1);
+  entries.splice(targetIndex, 0, movedEntry);
+  renderEntryInputs();
+  updateAll();
+  reorderStatus.textContent = `${sourceIndex + 1}番の項目を${targetIndex + 1}番へ移動しました。`;
+  if (focusHandle) {
+    requestAnimationFrame(() => {
+      entryList.querySelector(`.entry-row[data-index="${targetIndex}"] .drag-handle`)?.focus();
+    });
+  }
+}
+
+function handleReorderKeydown(event, index) {
+  if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+  event.preventDefault();
+  const targetIndex = event.key === "ArrowUp" ? Math.max(0, index - 1) : Math.min(entries.length - 1, index + 1);
+  moveEntry(index, targetIndex);
+}
+
+function beginPointerReorder(event, index, row, handle) {
+  if (event.button !== 0 || entries.length <= 1) return;
+  event.preventDefault();
+  handle.focus();
+  handle.setPointerCapture?.(event.pointerId);
+  pointerReorder = { pointerId: event.pointerId, sourceIndex: index, insertionIndex: index, startY: event.clientY, row, handle, started: false };
+}
+
+function updatePointerReorder(event) {
+  if (!pointerReorder || event.pointerId !== pointerReorder.pointerId) return;
+  if (!pointerReorder.started && Math.abs(event.clientY - pointerReorder.startY) < 5) return;
+  if (!pointerReorder.started) {
+    pointerReorder.started = true;
+    pointerReorder.row.classList.add("is-dragging");
+    entryList.classList.add("is-reordering");
+    reorderStatus.textContent = `${pointerReorder.sourceIndex + 1}番の項目を移動中です。`;
+  }
+  event.preventDefault();
+  const rows = Array.from(entryList.querySelectorAll(".entry-row"));
+  let insertionIndex = rows.length;
+  for (let index = 0; index < rows.length; index += 1) {
+    const rect = rows[index].getBoundingClientRect();
+    if (event.clientY < rect.top + rect.height / 2) {
+      insertionIndex = index;
+      break;
+    }
+  }
+  pointerReorder.insertionIndex = insertionIndex;
+  rows.forEach((row) => row.classList.remove("drop-before", "drop-after"));
+  if (insertionIndex < rows.length) rows[insertionIndex].classList.add("drop-before");
+  else rows[rows.length - 1]?.classList.add("drop-after");
+  const controls = entryList.closest(".controls");
+  if (controls) {
+    const rect = controls.getBoundingClientRect();
+    if (event.clientY < rect.top + 48) controls.scrollTop -= 14;
+    if (event.clientY > rect.bottom - 48) controls.scrollTop += 14;
+  }
+}
+
+function finishPointerReorder(event) {
+  if (!pointerReorder || event.pointerId !== pointerReorder.pointerId) return;
+  const state = pointerReorder;
+  const targetIndex = state.insertionIndex > state.sourceIndex ? state.insertionIndex - 1 : state.insertionIndex;
+  clearPointerReorder();
+  if (state.started && targetIndex !== state.sourceIndex) moveEntry(state.sourceIndex, Math.max(0, Math.min(entries.length - 1, targetIndex)));
+  else state.handle.focus();
+}
+
+function cancelPointerReorder(event) {
+  if (!pointerReorder || event.pointerId !== pointerReorder.pointerId) return;
+  const wasStarted = pointerReorder.started;
+  clearPointerReorder();
+  if (wasStarted) reorderStatus.textContent = "並べ替えをキャンセルしました。";
+}
+
+function clearPointerReorder() {
+  if (!pointerReorder) return;
+  pointerReorder.row.classList.remove("is-dragging");
+  entryList.classList.remove("is-reordering");
+  entryList.querySelectorAll(".drop-before, .drop-after").forEach((row) => row.classList.remove("drop-before", "drop-after"));
+  pointerReorder = null;
 }
 
 function createCell(character) {
@@ -231,9 +510,42 @@ function renderPreview() {
     printRoot.append(createPrintPage(pageWords, pageIndex));
   });
 
-  const sheetCount = pages.length;
-  const wordCount = words.length;
-  previewStatus.textContent = `（A4 たて・${sheetCount}シート・${wordCount}個）`;
+}
+
+function getPreviewBaseScale() {
+  const value = Number(getComputedStyle(sheetsContainer).getPropertyValue("--preview-base-scale"));
+  return Number.isFinite(value) && value > 0 ? value : 0.58;
+}
+
+function getPreviewMaxScale(baseScale) {
+  const paperWidthPx = 210 * 96 / 25.4;
+  const availableWidth = Math.max(0, sheetsContainer.clientWidth - 4);
+  return Math.max(baseScale, Math.min(1, availableWidth / paperWidthPx));
+}
+
+function updatePreviewZoom() {
+  const baseScale = getPreviewBaseScale();
+  const maxScale = getPreviewMaxScale(baseScale);
+  const maxSteps = Math.ceil(Math.max(0, maxScale - baseScale) / PREVIEW_ZOOM_STEP);
+  previewZoomSteps = Math.max(0, Math.min(previewZoomSteps, maxSteps));
+  const scale = Math.min(maxScale, baseScale + previewZoomSteps * PREVIEW_ZOOM_STEP);
+
+  if (previewZoomSteps === 0) {
+    sheetsContainer.style.removeProperty("--preview-scale");
+    sheetsContainer.style.removeProperty("--preview-w");
+    sheetsContainer.style.removeProperty("--preview-h");
+  } else {
+    sheetsContainer.style.setProperty("--preview-scale", scale.toFixed(4));
+    sheetsContainer.style.setProperty("--preview-w", `${(210 * scale).toFixed(3)}mm`);
+    sheetsContainer.style.setProperty("--preview-h", `${(297 * scale).toFixed(3)}mm`);
+  }
+  zoomOutButton.disabled = previewZoomSteps === 0;
+  zoomInButton.disabled = scale >= maxScale - 0.001;
+}
+
+function schedulePreviewZoomUpdate() {
+  cancelAnimationFrame(previewResizeFrame);
+  previewResizeFrame = requestAnimationFrame(updatePreviewZoom);
 }
 
 function updateAll() {
@@ -383,6 +695,7 @@ function waitForPrintFonts() {
 }
 
 async function printSheets() {
+  saveCurrentPrintHistory();
   document.body.classList.add("is-printing");
   await waitForPrintFonts();
   window.addEventListener("afterprint", cleanupPrintMode, { once: true });
@@ -402,20 +715,37 @@ chooseIdiomsButton.addEventListener("click", openIdiomDialog);
 closeIdiomDialogButton.addEventListener("click", closeIdiomDialog);
 cancelIdiomButton.addEventListener("click", closeIdiomDialog);
 addSelectedIdiomsButton.addEventListener("click", addSelectedIdioms);
+openHistoryButton.addEventListener("click", openHistoryDialog);
+closeHistoryButton.addEventListener("click", closeHistoryDialog);
+cancelHistoryButton.addEventListener("click", closeHistoryDialog);
+restoreHistoryButton.addEventListener("click", restoreSelectedPrintHistory);
+zoomInButton.addEventListener("click", () => {
+  previewZoomSteps += 1;
+  updatePreviewZoom();
+});
+zoomOutButton.addEventListener("click", () => {
+  previewZoomSteps -= 1;
+  updatePreviewZoom();
+});
 idiomModal.addEventListener("click", (event) => {
   if (event.target === idiomModal) {
     closeIdiomDialog();
   }
 });
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !idiomModal.hidden) {
-    closeIdiomDialog();
-  }
+historyModal.addEventListener("click", (event) => {
+  if (event.target === historyModal) closeHistoryDialog();
 });
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  if (!historyModal.hidden) closeHistoryDialog();
+  else if (!idiomModal.hidden) closeIdiomDialog();
+});
+window.addEventListener("resize", schedulePreviewZoomUpdate);
 
 loadState();
 renderEntryInputs();
 renderPreview();
+updatePreviewZoom();
 loadIdiomData();
 
 if ("serviceWorker" in navigator) {
