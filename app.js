@@ -2,7 +2,7 @@ const MAX_ENTRIES = 36;
 const PAGE_COLUMNS = 12;
 const PAGE_ROWS = 18;
 const STORAGE_KEY = "kanji-practice-sheet";
-const STORAGE_KEY_PREFIX = "kanji-practice-sheet-";
+const LEGACY_STORAGE_KEYS = ["kanji-practice-sheet-v2"];
 const HISTORY_STORAGE_KEY = "kanji-practice-print-history";
 const MAX_HISTORY_ITEMS = 100;
 const PREVIEW_ZOOM_STEP = 0.08;
@@ -54,25 +54,69 @@ const historyMessage = document.getElementById("historyMessage");
 const zoomOutButton = document.getElementById("zoomOutButton");
 const zoomInButton = document.getElementById("zoomInButton");
 
-function loadState() {
+function getStorage() {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function readStoredObject(storage, key) {
+  if (!storage) return null;
+  try {
+    const raw = storage.getItem(key);
+    if (!raw) return null;
+    const saved = JSON.parse(raw);
+    return saved && typeof saved === "object" && !Array.isArray(saved) ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+function loadState() {
+  const storage = getStorage();
+  let saved = readStoredObject(storage, STORAGE_KEY);
+  let migrated = false;
+
+  // The storage key changed from kanji-practice-sheet-v2. Read it once before
+  // cleaning up the old key so an app update cannot make existing data vanish.
+  if (!saved) {
+    for (const legacyKey of LEGACY_STORAGE_KEYS) {
+      saved = readStoredObject(storage, legacyKey);
+      if (saved) {
+        migrated = true;
+        break;
+      }
+    }
+  }
+
+  if (saved) {
     if (Array.isArray(saved.entries) && saved.entries.length) {
       entries = saved.entries.slice(0, MAX_ENTRIES).map((word) => String(word));
     }
     if (GRADES.some((grade) => grade.key === saved.currentGradeKey)) {
       currentGradeKey = saved.currentGradeKey;
     }
-  } catch {}
-  cleanupStorage();
+  }
+
+  if (migrated) saveState();
+  else cleanupStorage(storage);
 }
 
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({
-    entries,
-    currentGradeKey
-  }));
-  cleanupStorage();
+  const storage = getStorage();
+  if (!storage) return false;
+  try {
+    storage.setItem(STORAGE_KEY, JSON.stringify({
+      entries,
+      currentGradeKey
+    }));
+    cleanupStorage(storage);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function loadPrintHistory() {
@@ -239,10 +283,13 @@ function restoreSelectedPrintHistory() {
   closeHistoryDialog();
 }
 
-function cleanupStorage() {
-  Object.keys(localStorage)
-    .filter((key) => key.startsWith(STORAGE_KEY_PREFIX))
-    .forEach((key) => localStorage.removeItem(key));
+function cleanupStorage(storage = getStorage()) {
+  if (!storage) return;
+  LEGACY_STORAGE_KEYS.forEach((key) => {
+    try {
+      storage.removeItem(key);
+    } catch {}
+  });
 }
 
 function splitPages(words) {
