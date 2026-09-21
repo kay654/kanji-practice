@@ -9,6 +9,8 @@ const PREVIEW_ZOOM_STEP = 0.08;
 const INITIAL_WORDS = [""];
 const SAMPLE_SIZE = "12mm";
 const SAMPLE_OPACITY = 0.68;
+// Keep this stable so this app can be identified alongside related apps in GA4.
+const APP_NAME = "kanji_practice_sheet";
 const GRADES = [
   { label: "1年", key: "小1" },
   { label: "2年", key: "小2" },
@@ -53,6 +55,13 @@ const historyHelp = document.getElementById("historyHelp");
 const historyMessage = document.getElementById("historyMessage");
 const zoomOutButton = document.getElementById("zoomOutButton");
 const zoomInButton = document.getElementById("zoomInButton");
+
+function trackEvent(eventName, parameters = {}) {
+  // The Google tag can be blocked by a browser or privacy extension. Analytics
+  // must never prevent the worksheet editor from working in that case.
+  if (typeof window.gtag !== "function") return;
+  window.gtag("event", eventName, { app_name: APP_NAME, ...parameters });
+}
 
 function getStorage() {
   try {
@@ -280,6 +289,7 @@ function restoreSelectedPrintHistory() {
   entries = selected.entries.length ? [...selected.entries] : [...INITIAL_WORDS];
   renderEntryInputs();
   updateAll();
+  trackEvent("restore", { entry_count: getPreviewWords().length });
   closeHistoryDialog();
 }
 
@@ -709,6 +719,7 @@ function addSelectedIdioms() {
   const existing = new Set(entries.map((word) => word.trim()).filter(Boolean));
   const selected = Array.from(selectedIdioms).filter((idiom) => !existing.has(idiom));
 
+  let addedCount = 0;
   selected.forEach((idiom) => {
     if (getAvailableEntrySlots() <= 0) return;
     const blankIndex = entries.findIndex((word) => word.trim() === "");
@@ -718,10 +729,17 @@ function addSelectedIdioms() {
       entries.push(idiom);
     }
     existing.add(idiom);
+    addedCount += 1;
   });
 
   renderEntryInputs();
   updateAll();
+  if (addedCount > 0) {
+    trackEvent("select_content", {
+      content_type: "graded_idiom",
+      selection_count: addedCount
+    });
+  }
   closeIdiomDialog();
 }
 
@@ -742,6 +760,11 @@ function waitForPrintFonts() {
 }
 
 async function printSheets() {
+  const words = getPreviewWords();
+  trackEvent("print", {
+    entry_count: words.length,
+    page_count: splitPages(words).length
+  });
   saveCurrentPrintHistory();
   document.body.classList.add("is-printing");
   await waitForPrintFonts();
