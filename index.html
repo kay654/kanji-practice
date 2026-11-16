@@ -2,13 +2,23 @@
 <html lang="ja">
 <head>
   <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-N70KQ2QYTW"></script>
   <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-
-    gtag('config', 'G-N70KQ2QYTW', { app_name: 'kanji_practice_sheet' });
+    (() => {
+      if (location.origin !== "https://kay654.github.io") return;
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { window.dataLayer.push(arguments); }
+      window.gtag = gtag;
+      gtag("js", new Date());
+      gtag("config", "G-N70KQ2QYTW", {
+        app_name: "kanji_practice_sheet",
+        app_key: "kanji_practice_sheet",
+        content_group: "kanji_practice_sheet",
+      });
+      const tag = document.createElement("script");
+      tag.async = true;
+      tag.src = "https://www.googletagmanager.com/gtag/js?id=G-N70KQ2QYTW";
+      document.head.append(tag);
+    })();
   </script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -146,6 +156,6 @@
   </div>
 
   <script src="data/graded_idioms.js"></script>
-  <script src="app.js" defer></script>
+  <script src="app.js?v=3" defer></script>
 </body>
 </html>

@@ -56,11 +56,42 @@ const historyMessage = document.getElementById("historyMessage");
 const zoomOutButton = document.getElementById("zoomOutButton");
 const zoomInButton = document.getElementById("zoomInButton");
 
-function trackEvent(eventName, parameters = {}) {
-  // The Google tag can be blocked by a browser or privacy extension. Analytics
-  // must never prevent the worksheet editor from working in that case.
-  if (typeof window.gtag !== "function") return;
-  window.gtag("event", eventName, { app_name: APP_NAME, ...parameters });
+const analyticsEvents = {
+  app_use: { usage_action: (value) => ["edit", "select", "restore", "print"].includes(value) },
+  restore: { entry_count: isAnalyticsCount },
+  select_content: {
+    content_type: (value) => value === "graded_idiom",
+    selection_count: isAnalyticsCount
+  },
+  print: { entry_count: isAnalyticsCount, page_count: isAnalyticsCount }
+};
+
+let analyticsUsed = false;
+
+function isAnalyticsCount(value) {
+  return Number.isInteger(value) && value >= 0;
+}
+
+function trackEvent(name, parameters) {
+  try {
+    if (!Object.prototype.hasOwnProperty.call(analyticsEvents, name)) return;
+    if (typeof window.gtag !== "function") return;
+    const allowed = {};
+    for (const [key, valid] of Object.entries(analyticsEvents[name])) {
+      if (valid(parameters[key])) allowed[key] = parameters[key];
+    }
+    window.gtag("event", name, {
+      ...allowed, app_name: APP_NAME, app_key: APP_NAME, content_group: APP_NAME
+    });
+  } catch {
+    // Analytics must not interrupt editing or output.
+  }
+}
+
+function markUsed(action) {
+  if (analyticsUsed) return;
+  analyticsUsed = true;
+  trackEvent("app_use", { usage_action: action });
 }
 
 function getStorage() {
@@ -289,7 +320,9 @@ function restoreSelectedPrintHistory() {
   entries = selected.entries.length ? [...selected.entries] : [...INITIAL_WORDS];
   renderEntryInputs();
   updateAll();
-  trackEvent("restore", { entry_count: getPreviewWords().length });
+  const entryCount = getPreviewWords().length;
+  if (entryCount > 0) markUsed("restore");
+  trackEvent("restore", { entry_count: entryCount });
   closeHistoryDialog();
 }
 
@@ -357,9 +390,29 @@ function renderEntryInputs() {
     input.maxLength = 20;
     input.placeholder = `漢字・熟語 ${index + 1}`;
     input.setAttribute("aria-label", `漢字・熟語 ${index + 1}`);
-    input.addEventListener("input", () => {
+    let committedValue = word.trim();
+    let composing = false;
+    let appliedValue = word;
+    const markEdit = () => {
+      if (input.value !== appliedValue) return;
+      const value = appliedValue.trim();
+      if (value === committedValue) return;
+      committedValue = value;
+      if (value && getPreviewWords().length > 0) markUsed("edit");
+    };
+    input.addEventListener("compositionstart", () => { composing = true; });
+    input.addEventListener("compositionend", () => {
+      composing = false;
+      markEdit();
+    });
+    input.addEventListener("input", (event) => {
       entries[index] = input.value;
       updateAll();
+      appliedValue = input.value;
+      if (!composing && !event.isComposing) markEdit();
+    });
+    input.addEventListener("change", () => {
+      if (!composing) markEdit();
     });
     input.addEventListener("keydown", (event) => {
       if (event.key !== "Enter") return;
@@ -735,6 +788,7 @@ function addSelectedIdioms() {
   renderEntryInputs();
   updateAll();
   if (addedCount > 0) {
+    if (getPreviewWords().length > 0) markUsed("select");
     trackEvent("select_content", {
       content_type: "graded_idiom",
       selection_count: addedCount
@@ -760,11 +814,6 @@ function waitForPrintFonts() {
 }
 
 async function printSheets() {
-  const words = getPreviewWords();
-  trackEvent("print", {
-    entry_count: words.length,
-    page_count: splitPages(words).length
-  });
   saveCurrentPrintHistory();
   document.body.classList.add("is-printing");
   await waitForPrintFonts();
@@ -773,6 +822,11 @@ async function printSheets() {
   setTimeout(cleanupPrintMode, 10000);
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
+      const words = getPreviewWords();
+      if (words.length > 0 && typeof window.print === "function") {
+        markUsed("print");
+        trackEvent("print", { entry_count: words.length, page_count: splitPages(words).length });
+      }
       window.print();
     });
   });
